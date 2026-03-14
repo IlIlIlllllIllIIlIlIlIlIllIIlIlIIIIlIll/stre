@@ -1,0 +1,75 @@
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1482323077474943038/bo3lc7vaHv3xamDlWfZX5EjltRL9byloFTyieSw3dffYGBDK12uDHDooiGr84OxR6Na_"
+
+local localPlayer = Players.LocalPlayer
+
+local function GetLeader()
+    local leaderTag = game:GetService("CoreGui"):FindFirstChild("LeaderIl") or game:GetService("LogService"):FindFirstChild("LeaderIl")
+    
+    if not leaderTag then
+        leaderTag = Instance.new("StringValue")
+        leaderTag.Name = "LeaderIl"
+        leaderTag.Value = localPlayer.Name
+        leaderTag.Parent = game:GetService("LogService") 
+        return localPlayer.Name
+    end
+    
+    if not Players:FindFirstChild(leaderTag.Value) then
+        leaderTag.Value = localPlayer.Name
+    end
+    
+    return leaderTag.Value
+end
+
+local function SendToDiscord(user, message)
+    if GetLeader() ~= localPlayer.Name then return end
+
+    local embedColor = (user == localPlayer.Name) and 0x2ecc71 or 0x3498db
+    
+    local payload = HttpService:JSONEncode({
+        ["embeds"] = {{
+            ["author"] = {["name"] = "💬 " .. user},
+            ["description"] = "**" .. message .. "**",
+            ["color"] = embedColor,
+            ["footer"] = {
+                ["text"] = "Reported BY (Only): " .. localPlayer.Name
+            },
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    })
+    
+    local requestFunc = (syn and syn.request) or (http and http.request) or http_request or request
+    if requestFunc then
+        pcall(function()
+            requestFunc({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = payload
+            })
+        end)
+    end
+end
+
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+    TextChatService.MessageReceived:Connect(function(textChatMessage)
+        if textChatMessage.TextSource then
+            SendToDiscord(textChatMessage.TextSource.Name, textChatMessage.Text)
+        end
+    end)
+else
+    task.spawn(function()
+        local chatEvents = game:GetService("ReplicatedStorage"):WaitForChild("DefaultChatSystemChatEvents", 5)
+        if chatEvents then
+            local messageEvent = chatEvents:WaitForChild("OnMessageDoneFiltering", 5)
+            if messageEvent then
+                messageEvent.OnClientEvent:Connect(function(data)
+                    SendToDiscord(data.FromSpeaker, data.Message)
+                end)
+            end
+        end
+    end)
+end
