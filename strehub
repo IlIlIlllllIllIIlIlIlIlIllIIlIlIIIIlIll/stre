@@ -68,107 +68,127 @@ TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.Easing
 task.wait(0.55)
 IntroGui:Destroy()
 
--- MOTOR FUNCTIONS --
-local PartConnections = {}
-_G.PartDistances = {
-    ["Legs"] = 0, 
-    ["Arms"] = 0, 
-    ["Torso"] = 0, 
+-- [[ INITIALIZATION ]] --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+_G.ReachSettings = {
+    ["Legs"] = 0,
+    ["Arms"] = 0,
+    ["Torso"] = 0,
     ["Head"] = 0
 }
 
--- Body Groups (Mapped to your character's parts)
-local BodyGroups = {
-    ["Legs"] = {"LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg"},
-    ["Arms"] = {"LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftUpperArm", "RightUpperArm"},
-    ["Torso"] = {"LowerTorso", "UpperTorso"},
-    ["Head"] = {"Head"} 
+local IndicatorConfig = {
+    ["Legs"] = {Enabled = false, Color = Color3.fromRGB(0, 255, 255)},
+    ["Arms"] = {Enabled = false, Color = Color3.fromRGB(255, 0, 255)},
+    ["Torso"] = {Enabled = false, Color = Color3.fromRGB(255, 255, 0)},
+    ["Head"] = {Enabled = false, Color = Color3.fromRGB(255, 255, 255)}
 }
 
-local function HandlePartReach(GroupName, Distance)
-    local TargetParts = BodyGroups[GroupName]
+local BodyGroups = {
+    ["Legs"] = {"Right Foot", "Left Foot", "Right Leg", "Left Leg", "RightFoot", "LeftFoot", "RightLowerLeg", "LeftLowerLeg"},
+    ["Arms"] = {"Right Arm", "Left Arm", "Right Hand", "Left Hand", "RightHand", "LeftHand", "RightLowerArm", "LeftLowerArm"},
+    ["Torso"] = {"Torso", "LowerTorso", "UpperTorso", "HumanoidRootPart"},
+    ["Head"] = {"Head", "Kafa"}
+}
 
-    -- Disconnect old connection if distance is set to 0
-    if Distance <= 0 then
-        if PartConnections[GroupName] then
-            PartConnections[GroupName]:Disconnect()
-            PartConnections[GroupName] = nil
+local Indicators = {}
+local TPS_BALL_PATH = workspace:WaitForChild("TPSSystem"):WaitForChild("TPS")
+
+-- [[ GÖRSEL KUTU OLUŞTURUCU ]] --
+local function GetOrCreateIndicator(name)
+    if Indicators[name] then return Indicators[name] end
+    local p = Instance.new("Part")
+    p.Name = name .. "Indicator"
+    p.Shape = Enum.PartType.Block
+    p.Material = Enum.Material.Neon
+    p.Color = IndicatorConfig[name].Color
+    p.Transparency = 1
+    p.Anchored = true
+    p.CanCollide = false
+    p.CanTouch = false -- Dokunmayı bozmaması için kapalı
+    p.Parent = workspace
+    Indicators[name] = p
+    return p
+end
+
+-- [[ ANA DÖNGÜ ]] --
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char or not TPS_BALL_PATH then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local ballPos = TPS_BALL_PATH.Position
+    local hrpPos = hrp.Position
+
+    for groupName, distance in pairs(_G.ReachSettings) do
+        -- Indicator Güncelleme
+        local visual = GetOrCreateIndicator(groupName)
+        if distance > 0 and IndicatorConfig[groupName].Enabled then
+            visual.Transparency = 0.8
+            visual.CFrame = hrp.CFrame
+            visual.Size = Vector3.new(distance * 2, distance * 2, distance * 2)
+        else
+            visual.Transparency = 1
         end
-        return
-    end
 
-    _G.PartDistances[GroupName] = Distance
-
-    -- Create new connection if it doesn't exist
-    if not PartConnections[GroupName] then
-        PartConnections[GroupName] = RunService.RenderStepped:Connect(function()
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-
-            -- Target Path: Workspace.TPSSystem.TPS
-            local Target = workspace:FindFirstChild("TPSSystem") and workspace.TPSSystem.TPS
-            
-            if Target and (root.Position - Target.Position).Magnitude <= _G.PartDistances[GroupName] then
-                for _, pName in ipairs(TargetParts) do
-                    local p = char:FindFirstChild(pName)
-                    if p then
-                        firetouchinterest(p, Target, 0)
-                        firetouchinterest(p, Target, 1)
-                    end
+        -- Reach Kontrolü
+        if distance > 0 and (hrpPos - ballPos).Magnitude <= distance then
+            local parts = BodyGroups[groupName]
+            for i = 1, #parts do
+                local p = char:FindFirstChild(parts[i])
+                if p then
+                    firetouchinterest(p, TPS_BALL_PATH, 0)
+                    task.wait() 
+                    firetouchinterest(p, TPS_BALL_PATH, 1)
                 end
             end
-        end)
+        end
     end
-end
+end)
 
--- TAB GROUP --
-local function LocalMessage(Title, Text)
-    game.StarterGui:SetCore("SendNotification", {
-        ["Title"] = Title,
-        ["Text"] = Text,
-        ["Duration"] = 20
-    })
-end
-
-LocalMessage("TPS: Street Soccer", "Welcome To OceaHub!")
-
--- UI (MACLIB) --
+-- [[ UI SETUP ]] --
 local MacLib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
 local Window = MacLib:Window({
-    Title = "OceaHub ",
-    Subtitle = "Street Soccer Script",
-    Size = UDim2.fromOffset(850, 600),
+    Title = "OceaHub",
+    Subtitle = "TPS Street Soccer",
     DragStyle = 1,
     Keybind = Enum.KeyCode.RightControl, 
     AcrylicBlur = true
 })
 
 local tabGroup = Window:TabGroup()
-local fireTouchTab = tabGroup:Tab({ Name = "FireTouch", Image = "rbxassetid://18821914323" })
-local section = fireTouchTab:Section({ Side = "Left" })
+local mainTab = tabGroup:Tab({ Name = "FireTouch", Image = "rbxassetid://18821914323" })
 
-section:Header({ Name = "Reach Settings" })
+local function AddReachSection(name)
+    local section = mainTab:Section({ Side = "Left" })
+    section:Header({ Name = name .. " Settings" })
 
-local function CreateReachSlider(label)
+    section:Toggle({
+        Name = "Show " .. name .. " Indicator",
+        Default = false,
+        Callback = function(v)
+            IndicatorConfig[name].Enabled = v
+        end
+    })
+
     section:Slider({
-        Name = label,
-        Default = 0,
-        Minimum = 0,
-        Maximum = 30,
-        Precision = 1,
-        DisplayMethod = "Value",
-        Callback = function(Value)
-            HandlePartReach(label, Value)
+        Name = name .. " Distance",
+        Default = 0, Minimum = 0, Maximum = 30, Precision = 1,
+        Callback = function(v)
+            _G.ReachSettings[name] = v
         end
     })
 end
 
--- The 4 main categories you requested
-CreateReachSlider("Legs")
-CreateReachSlider("Arms")
-CreateReachSlider("Torso")
-CreateReachSlider("Head")
+AddReachSection("Legs")
+AddReachSection("Arms")
+AddReachSection("Torso")
+AddReachSection("Head") 
 
 -- BALL RESIZER CONFIGURATION --
 local b2b_REACH_X = 0
